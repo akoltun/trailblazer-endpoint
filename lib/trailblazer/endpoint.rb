@@ -19,11 +19,14 @@ module Trailblazer
         resolve: ->(result) { result }),
       # TODO: we could add unauthorized here.
       unauthenticated: Dry::Matcher::Case.new(
-        match:   ->(result) { result.failure? && result["result.policy.default"].failure? }, # FIXME: we might need a &. here ;)
+        match:   ->(result) { result.failure? && result["result.policy.default"] && result["result.policy.default"].failure? }, # FIXME: we might need a &. here ;)
         resolve: ->(result) { result }),
       invalid: Dry::Matcher::Case.new(
         match:   ->(result) { result.failure? && result["result.contract.default"] && result["result.contract.default"].failure? },
-        resolve: ->(result) { result })
+        resolve: ->(result) { result }),
+      failure: Dry::Matcher::Case.new(
+          match: ->(result) { result.failure? },
+          resolve: ->(result) { result })
     )
 
     # `call`s the operation.
@@ -41,12 +44,21 @@ module Trailblazer
       Matcher
     end
 
+    private
+
+    # TODO : use pattern to match all policies if result object allows it
+    # match: ->(result) { skill_failure_found_based_on_pattern?(result: result, pattern: /result\.policy\..*/) },
+    # match: ->(result) { skill_failure_found_based_on_pattern?(result: result, pattern: /result\.contract\..*/) },
+    # def self.skill_failure_found_based_on_pattern(result:, pattern:)
+    #   result.match_pattern(pattern).select { |skill| skill.failure? }.present?
+    # end
+
     module Controller
       # endpoint(Create) do |m|
       #   m.not_found { |result| .. }
       # end
       def endpoint(operation_class, options={}, &block)
-        handlers = Handlers::Rails.new(self, options).()
+        handlers = options[:handler] ?  options[:handler].new(self, options).() : Handlers::Rails.new(self, options).()
         Endpoint.(operation_class, handlers, *options[:args], &block)
       end
     end
